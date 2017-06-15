@@ -105,10 +105,12 @@ trips %>%
 trips <- mutate(trips, time=format(starttime, "%H:%M:%S"))
 trips <- mutate(trips, hour=format(starttime, "%H"))
 trips <- select(trips, tripduration, day, time, hour, everything())
-trips %>% 
+a <- trips %>% 
   group_by(hour, day) %>% 
   count() %>% 
   #ungroup() %>% 
   group_by(hour) %>% 
-  summarise(avg_num_trips = mean(n)) %>%
-  View
+  summarise(avg_num_trips = mean(n)) #%>%
+  #View
+a <- mutate(a, hour = as.numeric(hour))
+ggplot(a, aes(x=hour, y=avg_num_trips)) + geom_histogram()
