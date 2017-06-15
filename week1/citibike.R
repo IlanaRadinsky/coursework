@@ -104,13 +104,18 @@ trips %>%
 # what time(s) of day tend to be peak hour(s)?
 trips <- mutate(trips, time=format(starttime, "%H:%M:%S"))
 trips <- mutate(trips, hour=format(starttime, "%H"))
+View (trips)
 trips <- select(trips, tripduration, day, time, hour, everything())
-a <- trips %>% 
+trips_by_hour <- trips %>% 
   group_by(hour, day) %>% 
   count() %>% 
   #ungroup() %>% 
   group_by(hour) %>% 
-  summarise(avg_num_trips = mean(n)) #%>%
+  summarise(avg_num_trips = mean(n)) %>%
+  mutate(hour = as.numeric(hour)) 
   #View
-a <- mutate(a, hour = as.numeric(hour))
-ggplot(a, aes(x=hour, y=avg_num_trips)) + geom_histogram()
+View(trips_by_hour)
+
+trips_by_hour %>%
+  ggplot(aes(x=hour, y=avg_num_trips)) + 
+  geom_histogram(stat="identity")
