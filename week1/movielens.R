@@ -186,22 +186,14 @@ inventory_size <-
   unique() %>%
   arrange(rank)
 
-ninety <-
+inventory_size_with_perc_users_satisfied <-
   inventory_size %>%
   group_by(rank) %>%
-  summarise(perc_satisfied_ninety=sum(users_with_perc_satisfaction$num_movies_for_nintey_perc_satisfaction<=rank)/num_unique_users[1,1]) 
-
-
-hundred <-
-  inventory_size %>%
-  group_by(rank) %>%
-  summarise(perc_satisfied_hundred=sum(users_with_perc_satisfaction$num_movies_for_onehundred_perc_satisfaction<=rank)/num_unique_users[1,1])
-
-final <-
-  inner_join(ninety, hundred) %>%
+  summarise(perc_satisfied_ninety=sum(users_with_perc_satisfaction$num_movies_for_nintey_perc_satisfaction<=rank)/num_unique_users[1,1],
+            perc_satisfied_hundred=sum(users_with_perc_satisfaction$num_movies_for_onehundred_perc_satisfaction<=rank)/num_unique_users[1,1]) %>%
   gather("perc_user_satisfaction", "perc_of_users_satisfied", 2:3) 
 
-ggplot(final, aes(x=rank, y=perc_of_users_satisfied, color=perc_user_satisfaction)) +
+ggplot(inventory_size_with_perc_users_satisfied, aes(x=rank, y=perc_of_users_satisfied, color=perc_user_satisfaction)) +
   geom_line() +
   labs(y="Percent of Users Satisfied", x="Inventory Size", color="Percentage of Individual Satisfaction") +
   scale_color_manual(labels = c("100%", "90%"), values = c("red", "blue")) +
