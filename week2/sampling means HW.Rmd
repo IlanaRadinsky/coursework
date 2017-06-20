@@ -142,7 +142,7 @@ for (iter in 1:500) {
   
   temp <- sim_power %>%
     filter(fifth_percentile>=9) %>%
-    filter(fifth_percentile==min(fifth_percentile)) 
+    summarise(min(sample_size))
   
   ans[iter] <- temp[1,1]
 }
