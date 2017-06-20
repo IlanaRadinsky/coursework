@@ -2,7 +2,9 @@
 title: "Coefficients and bias"
 author: "Jacob LaRiviere"
 date: "June 18, 2017, 2017"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
   
 ```{r setup, include=FALSE}
@@ -100,10 +102,55 @@ ggplot(sim_power, aes(Number_Obs)) + geom_line(aes(y=st_error),colour = "red")
 
 
 # Question: Take a normal distribution with mu = 10 and variance of 9 (e.g., standard deviation of 3).  Simulate a population of 10,000.  What is the sample size needed to make the standard error of the sample mean sufficiently small so that no more than 5% of the sample means are less 9?
-  
-  
 
+n = 10000
+p = 1
+ans = rep(0, 500)
 
+for (iter in 1:500) {
+  X = matrix(rnorm(n*p), n, p)  
+  
+  st_dev <- 3
+  mu <- 10
+  
+  X[,1] <- X[,1]*st_dev + mu
+  X <-data.frame(X)
+  ggplot(X,aes(X)) + geom_histogram(binwidth=1)  
+  
+  obs_0 = 3
+  obs_max = 100
+  obs_vec <- seq(obs_0, obs_max, 1)
+  obs_count <- length(obs_vec)
+  
+  #Create dataframe to store our observations
+  sim_power <- NULL
+  sim_power = matrix(0, obs_count, 2)
+  sim_power[,1]<-obs_vec
+  sim_power <- data.frame(sim_power)
+  colnames(sim_power) <- c("sample_size","fifth_percentile")
+  #Reset sample_means
+  sample_means <- NULL
+  sample_means = rep(0,total_samps)
+  
+  for (j in 1:obs_count) {
+    for (i in 1:total_samps) {
+    subsample <- c(sample(X[,1], sim_power[j,1]))
+    sample_means[i] = mean(subsample)
+    }
+    sim_power[j,2] <- quantile(sample_means, 0.05)
+  }
+  
+  temp <- sim_power %>%
+    filter(fifth_percentile>=9) %>%
+    filter(fifth_percentile==min(fifth_percentile)) 
+  
+  ans[iter] <- temp[1,1]
+}
+
+ans <-data.frame(ans)
+
+ans %>%
+  summarise(mean=mean(ans))
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
