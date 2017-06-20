@@ -24,6 +24,7 @@ library(tidyr)
 library(ggplot2)
 library(reshape2)
 
+X <- NULL
 
 #setwd("C:/Users/jlariv/OneDrive/Econ 404/")
 #mydata <- read.csv("oj.csv")
@@ -71,10 +72,10 @@ st_err <- st_dev/(obs^.5)
 summary(sample_means)
 
 #Create a vector which increments up from an initial value to 100 by one
-obs_0 = 10
-mobs_max = 100
-obs_vec <- seq(obs_0, 100, 1)
-obs_count <- length(obs_vec)
+obs_0 = 3
+obs_max = 100
+obs_vec <- seq(obs_0, obs_max, 1)
+obs_count <- length(obs_vec) #number of sample sizes we are trying
 
 #Create dataframe to store our observations
 sim_power = matrix(0, obs_count, 3)
@@ -83,11 +84,17 @@ sim_power <- data.frame(sim_power)
 colnames(sim_power) <- c("Number_Obs","mean","st_error")
 #Reset sample_means
 sample_means <- NULL
-sample_means = rep(0,total_samps)
+sample_means = rep(0,total_samps) #rep-> repeat
+
+#total_samps is the number of random samples of sim_power[i,1] observations we want to take
+#sample_means is the vector that stores the mean of the sample for each of the total_samps
+#samples -> can then look at the distribution of the means and see if they are normally
+#distributed. can see how well the average of the sample means predicts the population 
+# mean
 
 for (j in 1:obs_count) {
   for (i in 1:total_samps) {
-  subsample <- c(sample(X[,1], obs))
+  subsample <- c(sample(X[,1], sim_power[j,1]))
   sample_means[i] = mean(subsample)
   }
   sim_power[j,2] <- mean(sample_means)
