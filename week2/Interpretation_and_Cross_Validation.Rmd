@@ -1,0 +1,304 @@
+---
+title: "Interpretation and Cross Validation (HW3)"
+author: "Ilana Radinsky"
+date: "June 21, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exploring demographics as related to demand
+
+```{r, echo=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+
+setwd("C:/MSR-DS3/coursework/week2")
+
+oj <- read.csv("oj.csv")
+colnames(oj)[1-17]
+```
+
+```{r}
+model <- lm(logmove ~ log(price)*brand*feat, data=oj)
+summary(model)
+
+print("-----------------------")
+
+model_with_demographics <- lm(logmove ~ log(price)*brand*feat + AGE60 +
+                                 EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM +
+                                 HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5,
+                               data=oj)
+summary(model_with_demographics)
+
+model_improvement<- summary(model)$adj.r.squared-summary(model_with_demographics)$adj.r.squared
+print(model_improvement)
+```
+
+5-fold cross validation:
+
+```{r}
+model <- glm(logmove ~ log(price)*brand*feat, data=oj)
+model_with_demographics <- glm(logmove ~ log(price)*brand*feat + AGE60 +
+                                 EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM +
+                                 HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                                 CPDIST5,
+                               data=oj)
+
+set.seed(17)
+
+cv.mse.model = rep(0, 5)
+cv.mse.model_with_demographics = rep(0, 5)
+for (i in 1:5) {
+  cv.mse.model[i] = cv.glm(oj, model, K=5)$delta[1]
+  cv.mse.model_with_demographics[i] = cv.glm(oj, model_with_demographics, K=5)$delta[1]
+}
+
+mean(cv.mse.model)
+mean(cv.mse.model_with_demographics)
+```
+
+## Focusing on HVAL150 and EDUC
+
+```{r}
+summary(oj$HVAL150)
+summary(oj$EDUC)
+```
+
+How does the avg quantity per week change from the 3rd Qu. to the Median?
+
+```{r}
+df_HVAL150 <- oj %>%
+  filter(HVAL150>=median(HVAL150), HVAL150<=quantile(HVAL150, 0.75)) %>%
+  group_by(HVAL150, week) %>%
+  summarise(total_logmove = sum(logmove)) %>%
+  group_by(HVAL150) %>%
+  summarise(avg_logmove_per_week = mean(total_logmove))
+
+df_EDUC <- oj %>%
+  filter(EDUC>=median(EDUC), EDUC<=quantile(EDUC, 0.75)) %>%
+  group_by(EDUC, week) %>%
+  summarise(total_logmove = sum(logmove)) %>%
+  group_by(EDUC) %>%
+  summarise(avg_logmove_per_week = mean(total_logmove))
+
+df_merged <-
+  combine(df_EDUC$avg_logmove_per_week, df_HVAL150$avg_logmove_per_week) %>%
+  data.frame()
+
+colnames(df_merged) <-("avg_logmove_per_week")
+
+df_merged <-
+  df_merged %>%
+  left_join(df_HVAL150) %>%
+  left_join(df_EDUC) %>%
+  gather("feature", "val", 2:3)
+
+ggplot(df_merged, aes(x=val, y=avg_logmove_per_week, color = feature)) +
+  geom_smooth() +
+  facet_wrap(~ feature) 
+  
+# LATER - combine these two on the same plot to see which has a more significant effect on avg_logmove_per_week (will be comparing the slopes)
+
+q_at_HVAL150_med <- exp(coef(model_with_demographics)["HVAL150"]*summary(oj$HVAL150)["Median"])
+q_at_HVAL150_0.75<- exp(coef(model_with_demographics)["HVAL150"]*summary(oj$HVAL150)["3rd Qu."])
+q_at_HVAL150_0.75-q_at_HVAL150_med
+# OR - 
+# exp(coef(model_with_demographics)["HVAL150"]*(summary(oj$HVAL150["3rd Qu."]-summary(oj$HVAL150)["Median"])))
+
+q_at_EDUC_med <- exp(coef(model_with_demographics)["EDUC"]*summary(oj$EDUC)["Median"])
+q_at_EDUC_0.75<- exp(coef(model_with_demographics)["EDUC"]*summary(oj$EDUC)["3rd Qu."])
+q_at_EDUC_0.75-q_at_EDUC_med
+# OR - 
+# exp(coef(model_with_demographics)["EDUC"]*(summary(oj$EDUC["3rd Qu."]-summary(oj$EDUC)["Median"])))
+
+```
+
+Do these variables impact price sensitivity?
+
+```{r}
+model2 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 +
+                log(price)*EDUC + AGE60 + 
+                EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM +
+                HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                CPDIST5,
+              data=oj)
+
+summary(model2)
+```
+
+```{r}
+q_at_HVAL150_med <- coef(model2)["HVAL150"]*summary(oj$HVAL150)["Median"]
+q_at_HVAL150_0.75<- coef(model2)["HVAL150"]*summary(oj$HVAL150)["3rd Qu."]
+q_at_HVAL150_0.75-q_at_HVAL150_med
+
+q_at_EDUC_med <- coef(model2)["EDUC"]*summary(oj$EDUC)["Median"]
+q_at_EDUC_0.75<- coef(model2)["EDUC"]*summary(oj$EDUC)["3rd Qu."]
+q_at_EDUC_0.75-q_at_EDUC_med
+```
+
+```{r}
+df1 <-oj
+df1$week<-df1$week+1
+# df1 now has NEXT week and not the current one. If we merge this by
+#weeks now, this is last week's price (e.g., "lagged price").
+myvars <- c("price", "week", "brand","store")
+df1 <- df1[myvars]
+oj_with_lagged_prices <- 
+  merge(oj, df1, by=c("brand","store","week")) %>%
+  rename(price=price.x, last_week_price=price.y)
+
+model3 <- glm(logmove ~ log(price)*log(last_week_price), data=oj_with_lagged_prices)
+summary(model3)
+```
+
+## More cross-validation
+
+```{r}
+model <- glm(logmove ~ log(price)*brand*feat, data=oj)
+model_with_demographics <- glm(logmove ~ log(price)*brand*feat + AGE60 +
+                                 EDUC + ETHNIC + INCOME + HHLARGE + WORKWOM +
+                                 HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                                 CPDIST5,
+                               data=oj)
+model4 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + AGE60 + 
+                EDUC + ETHNIC + INCOME + HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                CPDIST5,
+              data=oj)
+
+model5 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + ETHNIC + INCOME + HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                CPDIST5 + WORKWOM + WORKWOM*log(price),
+              data=oj)
+
+model6 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + ETHNIC + INCOME + HVAL150 + 
+                CPDIST5 + WORKWOM + WORKWOM*log(price),
+              data=oj)
+
+model7 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + ETHNIC + INCOME + HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                CPDIST5 + WORKWOM + WORKWOM*log(price),
+              data=oj)
+
+model8 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + ETHNIC + INCOME + HVAL150 + SSTRDIST + SSTRVOL + CPWVOL5 + 
+                CPDIST5 + WORKWOM + WORKWOM*log(price),
+              data=oj)
+
+model8 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + INCOME*log(price) + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) +
+                CPDIST5 + WORKWOM + WORKWOM*log(price),
+              data=oj)
+
+model9 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                EDUC*log(price) + ETHNIC*log(price) + INCOME*log(price) + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) +
+                CPDIST5 + WORKWOM*log(price),
+              data=oj)
+
+model10 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + INCOME*log(price) + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) +
+                CPDIST5 + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price),
+              data=oj_with_lagged_prices)
+
+model11 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + 
+                AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) +
+                CPDIST5 + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price),
+              data=oj_with_lagged_prices)
+
+model12 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150 + log(price)*AGE60 + 
+                AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + INCOME*log(price) + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) + CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price +
+                 last_week_price*log(price),
+              data=oj_with_lagged_prices)
+
+model13 <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + 
+                AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + 
+                SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) +
+                CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price),
+              data=oj_with_lagged_prices)
+
+set.seed(17)
+
+cv.mse.model = rep(0, 5)
+cv.mse.model_with_demographics = rep(0, 5)
+cv.mse.model2 = rep(0, 5)
+cv.mse.model3 = rep(0, 5)
+cv.mse.model4 = rep(0 ,5)
+cv.mse.model5 = rep(0, 5)
+cv.mse.model6 = rep(0, 5)
+cv.mse.model7 = rep(0, 5)
+cv.mse.model8 = rep(0, 5)
+cv.mse.model9 = rep(0, 5)
+cv.mse.model10 = rep(0, 5)
+cv.mse.model11 = rep(0, 5)
+cv.mse.model12 = rep(0, 5)
+cv.mse.model13 = rep(0, 5)
+
+for (i in 1:5) {
+  cv.mse.model[i] = cv.glm(oj, model, K=5)$delta[1]
+  cv.mse.model_with_demographics[i] = cv.glm(oj, model_with_demographics, K=5)$delta[1]
+  cv.mse.model2[i] = cv.glm(oj, model2, K=5)$delta[1]
+  cv.mse.model3[i] = cv.glm(oj_with_lagged_prices, model3, K=5)$delta[1]
+  cv.mse.model4[i] = cv.glm(oj, model4, K=5)$delta[1]
+  cv.mse.model5[i] = cv.glm(oj, model5, K=5)$delta[1]
+  cv.mse.model6[i] = cv.glm(oj, model6, K=5)$delta[1]
+  cv.mse.model7[i] = cv.glm(oj, model7, K=5)$delta[1]
+  cv.mse.model8[i] = cv.glm(oj, model8, K=5)$delta[1]
+  cv.mse.model9[i] = cv.glm(oj, model9, K=5)$delta[1]
+  cv.mse.model10[i] = cv.glm(oj_with_lagged_prices, model10, K=5)$delta[1]
+  cv.mse.model11[i] = cv.glm(oj_with_lagged_prices, model11, K=5)$delta[1]
+  cv.mse.model12[i] = cv.glm(oj_with_lagged_prices, model12, K=5)$delta[1]
+  cv.mse.model13[i] = cv.glm(oj_with_lagged_prices, model13, K=5)$delta[1]
+}
+
+mean(cv.mse.model)
+mean(cv.mse.model_with_demographics)
+mean(cv.mse.model2)
+mean(cv.mse.model3)
+mean(cv.mse.model4)
+mean(cv.mse.model5)
+mean(cv.mse.model6)
+mean(cv.mse.model7)
+mean(cv.mse.model8)
+mean(cv.mse.model9)
+mean(cv.mse.model10)
+mean(cv.mse.model11)
+mean(cv.mse.model12)
+mean(cv.mse.model13)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
