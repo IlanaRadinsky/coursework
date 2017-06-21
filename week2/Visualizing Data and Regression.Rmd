@@ -32,28 +32,28 @@ colnames(oj)[1-17]
 
 Make a box plot of price.
 
-```{r pressure, echo=FALSE}
+```{r  }
 ggplot(oj, aes(factor('Juice'), price)) +
   geom_boxplot()
 ```
 
 Make a box plot of log price.
 
-```{r pressure, echo=FALSE}
+```{r  }
 ggplot(oj, aes(factor('Juice'), log(price))) +
   geom_boxplot()
 ```
 
 Make a box plot of price, but separate out each brand.
 
-```{r pressure, echo=FALSE}
+```{r}
 ggplot(oj, aes(factor(brand), price)) +
   geom_boxplot(aes(fill=factor(brand)))
 ```
 
 Do the same for log price.
 
-```{r pressure, echo=FALSE}
+```{r  }
 ggplot(oj, aes(factor(brand), log(price))) +
   geom_boxplot(aes(fill=factor(brand)))
 ```
@@ -62,7 +62,7 @@ ggplot(oj, aes(factor(brand), log(price))) +
 
 Plot `logmove` vs. `log(price)` for each brand.
 
-```{r pressure, echo=FALSE}
+```{r  }
 ggplot(oj, aes(y=log(price), x=logmove)) +
   geom_point(aes(color=factor(brand)))
 ```
@@ -71,7 +71,7 @@ ggplot(oj, aes(y=log(price), x=logmove)) +
 
 Do a regression of log quantity on log price.
 
-```{r pressure, echo=FALSE}
+```{r  }
 model1 <- glm(logmove ~ log(price), data=oj)
 summary(model1)
 ```
@@ -80,16 +80,16 @@ As the price increases, the quantity sold decreases.
 
 Add in an intercept term for each brand.
 
-```{r pressure, echo=FALSE}
+```{r  }
 model2 <- glm(logmove ~ log(price) + brand, data=oj)
 summary(model2)
 ```
 
-```{r pressure, echo=FALSE}
+```{r  }
 model3 <- glm(logmove ~ log(price)*brand, data=oj)
 summary(model3)
 ```
-```{r pressure, echo=FALSE}
+```{r  }
 smp_size <- floor(0.8 * nrow(oj))
 
 set.seed(123)
@@ -100,22 +100,29 @@ test <- oj[-train_ind, ]
 
 model4 <- glm(logmove ~ log(price)*brand, data=train)
 
-y_hat <- predict(model4, newx=test)
+y_hat <- predict(model4, newdata = test)
 summary(y_hat)
 summary(test$logmove)
 
+test <- test %>%
+  mutate(predicted_logmove = y_hat)
+
 mean_squared_error <- sum((test$logmove-y_hat)^2)/nrow(test)
+
+ggplot(test, aes(x=log(price), y=logmove, color=brand)) +
+  geom_point() +
+  geom_line(aes(x=log(price), y=predicted_logmove, color=brand))
 ```
 
 ## Impact of "featuring in store"
 
 Which brand is featured the most?
 
-```{r pressure, echo=FALSE}
+```{r  }
 ggplot(oj, aes(y=feat, x=factor(brand))) +
   geom_point(aes(color=factor(brand)), position = "jitter")
 ```
-```{r pressure, echo=FALSE}
+```{r  }
 
 oj %>%
   group_by(brand) %>% 
@@ -124,21 +131,21 @@ oj %>%
 
 How can you incorporate the feature variable into our regression? Start with an additive formulation.
 
-```{r pressure, echo=FALSE}
+```{r  }
 model5 <- glm(logmove ~ log(price) + feat, data=oj)
 summary(model5)
 ```
 
 Now run a model where features can impact sales and price sensitivity.
 
-```{r pressure, echo=FALSE}
+```{r  }
 model6 <- glm(logmove ~ log(price)*feat + feat, data=oj)
 summary(model6)
 ```
 
 Now add what you think are the most relevant sociodemographic controls and produce the regression results from tha regression as well.
 
-```{r pressure, echo=FALSE}
+```{r  }
 model7 <- glm(logmove ~ log(price)*INCOME + AGE60*feat + ETHNIC + brand, data=oj)
 summary(model7)
 ```
