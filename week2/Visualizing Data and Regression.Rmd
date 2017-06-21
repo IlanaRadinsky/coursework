@@ -1,0 +1,146 @@
+---
+title: "Visualizing Data and Regression"
+author: "Ilana Radinsky"
+date: "June 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+
+setwd("C:/MSR-DS3/coursework/week2")
+
+oj <- read.csv("oj.csv")
+colnames(oj)[1-17]
+
+```
+
+## Visualizing price
+
+Make a box plot of price.
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(factor('Juice'), price)) +
+  geom_boxplot()
+```
+
+Make a box plot of log price.
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(factor('Juice'), log(price))) +
+  geom_boxplot()
+```
+
+Make a box plot of price, but separate out each brand.
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(factor(brand), price)) +
+  geom_boxplot(aes(fill=factor(brand)))
+```
+
+Do the same for log price.
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(factor(brand), log(price))) +
+  geom_boxplot(aes(fill=factor(brand)))
+```
+
+## Visualizing the quantity/price relationship
+
+Plot `logmove` vs. `log(price)` for each brand.
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(y=log(price), x=logmove)) +
+  geom_point(aes(color=factor(brand)))
+```
+
+## Estimating the relationship
+
+Do a regression of log quantity on log price.
+
+```{r pressure, echo=FALSE}
+model1 <- glm(logmove ~ log(price), data=oj)
+summary(model1)
+```
+
+As the price increases, the quantity sold decreases.
+
+Add in an intercept term for each brand.
+
+```{r pressure, echo=FALSE}
+model2 <- glm(logmove ~ log(price) + brand, data=oj)
+summary(model2)
+```
+
+```{r pressure, echo=FALSE}
+model3 <- glm(logmove ~ log(price)*brand, data=oj)
+summary(model3)
+```
+```{r pressure, echo=FALSE}
+smp_size <- floor(0.8 * nrow(oj))
+
+set.seed(123)
+train_ind <- sample(seq_len(nrow(oj)), size = smp_size)
+
+train <- oj[train_ind, ]
+test <- oj[-train_ind, ]
+
+model4 <- glm(logmove ~ log(price)*brand, data=train)
+
+y_hat <- predict(model4, newx=test)
+summary(y_hat)
+summary(test$logmove)
+
+mean_squared_error <- sum((test$logmove-y_hat)^2)/nrow(test)
+```
+
+## Impact of "featuring in store"
+
+Which brand is featured the most?
+
+```{r pressure, echo=FALSE}
+ggplot(oj, aes(y=feat, x=factor(brand))) +
+  geom_point(aes(color=factor(brand)), position = "jitter")
+```
+```{r pressure, echo=FALSE}
+
+oj %>%
+  group_by(brand) %>% 
+  summarise(avg_price=mean(price), feat_rate=mean(feat))
+```
+
+How can you incorporate the feature variable into our regression? Start with an additive formulation.
+
+```{r pressure, echo=FALSE}
+model5 <- glm(logmove ~ log(price) + feat, data=oj)
+summary(model5)
+```
+
+Now run a model where features can impact sales and price sensitivity.
+
+```{r pressure, echo=FALSE}
+model6 <- glm(logmove ~ log(price)*feat + feat, data=oj)
+summary(model6)
+```
+
+Now add what you think are the most relevant sociodemographic controls and produce the regression results from tha regression as well.
+
+```{r pressure, echo=FALSE}
+model7 <- glm(logmove ~ log(price)*INCOME + AGE60*feat + ETHNIC + brand, data=oj)
+summary(model7)
+```
+
+
