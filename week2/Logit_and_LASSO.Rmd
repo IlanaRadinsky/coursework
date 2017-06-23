@@ -1,0 +1,171 @@
+---
+title: "Logit and LASSO"
+author: "Ilana Radinsky"
+date: "June 22, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## SAT dataset
+
+```{r, echo = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+library(glmnet)
+
+setwd("C:/MSR-DS3/coursework/week2")
+
+sat_df <- read.csv("sat.csv")
+colnames(sat_df)[1-17]
+
+```
+
+## Summarise the data
+
+```{r}
+summary(sat_df)
+head(sat_df)
+```
+
+what percent of the sample took the SATs?
+
+```{r}
+summarise(sat_df, perc=(sum(sat!=0)/n()))
+```
+
+What is the avergae score rank of high school students who took the SAT versus those that didn't?
+
+```{r}
+sat_df %>%
+  group_by(satobs) %>%
+  summarise(avg_rank=mean(rank))
+```
+
+```{r}
+sat_logit <- glm(satobs ~ rank + mlhs + mcol + flhs + fcol + black + hisp + asian + female + nsib, data=sat_df, family="binomial")
+summary(sat_logit)
+
+sat_ols <- glm(satobs ~ rank + mlhs + mcol + flhs + fcol + black + hisp + asian + female + rdsc + vocab + matsc + nsib, data=sat_df)
+summary(sat_ols)
+
+coef(sat_logit)
+exp(coef(sat_ols))
+```
+
+## Orange juice dataset
+
+```{r}
+oj <- read.csv("oj.csv")
+
+df1 <-oj
+df1$week<-df1$week+1
+# df1 now has NEXT week and not the current one. If we merge this by
+#weeks now, this is last week's price (e.g., "lagged price").
+myvars <- c("price", "week", "brand","store")
+df1 <- df1[myvars]
+oj_with_lagged_prices <- 
+  merge(oj, df1, by=c("brand","store","week")) %>%
+  rename(price=price.x, last_week_price=price.y)
+
+oj_ols <- glm(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) + CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price), data=oj_with_lagged_prices)
+```
+
+# find MSE for OLS model
+
+```{r}
+set.seed(17)
+
+cv.mse.oj_ols = rep(0, 5)
+
+for (i in 1:5) {
+  cv.mse.oj_ols[i] = cv.glm(oj_with_lagged_prices, oj_ols, K=5)$delta[1]
+}
+
+mean(cv.mse.oj_ols)
+```
+
+# find MSE for OLS model with LASSO
+
+```{r}
+
+X <- model.matrix(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) + CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price), data=oj_with_lagged_prices)
+y <- as.matrix(oj_with_lagged_prices["logmove"])
+
+oj_lasso <- cv.glmnet(X, y, alpha=1)
+plot(oj_lasso)
+```
+
+# minimum MSE
+
+```{r}
+oj_lasso$cvm[oj_lasso$lambda==oj_lasso$lambda.min]
+
+coef(oj_lasso)
+```
+
+# find MSE for OLS model with LASSO/Ridge
+
+```{r}
+oj_lasso_ridge <- cv.glmnet(X, y, alpha=0.5)
+
+oj_lasso_ridge$cvm[oj_lasso_ridge$lambda==oj_lasso_ridge$lambda.min]
+
+```
+
+# create test and train datasets
+```{r}
+sample_size <- floor(0.90 * nrow(oj_with_lagged_prices))
+
+set.seed(17)
+train_ind <- sample(seq_len(nrow(oj_with_lagged_prices)), size=sample_size)
+
+train <- oj_with_lagged_prices[train_ind, ]
+test <- oj_with_lagged_prices[-train_ind, ]
+```
+
+# train LASSO model on training set
+```{r}
+X_train <- model.matrix(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) + CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price), data=train)
+y_train <- as.matrix(train["logmove"])
+
+lasso_model <- cv.glmnet(X_train, y_train, alpha=1)
+
+X_test <- model.matrix(logmove ~ log(price)*brand*feat + log(price)*HVAL150*INCOME + log(price)*AGE60 + AGE60 + EDUC + EDUC*log(price) + ETHNIC + ETHNIC*log(price) + INCOME + HVAL150 + SSTRDIST + SSTRDIST*log(price)+ SSTRVOL + SSTRVOL*log(price) + CPWVOL5 + CPWVOL5*log(price) + CPDIST5 + CPDIST5*log(price) + WORKWOM + WORKWOM*log(price) + last_week_price + last_week_price*log(price), data=test)
+
+predict(lasso_model, newx=X_test, s="lambda.min")
+
+oj_with_pred <-
+  test %>%
+  mutate(predicted_logmove=predict(lasso_model, newx=X_test, s="lambda.min"), perc_error = abs(logmove-predicted_logmove)/logmove) %>%
+  select(logmove, predicted_logmove, perc_error, everything())
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
