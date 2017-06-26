@@ -1,0 +1,438 @@
+---
+title: "ML Modeling (Week 3, HW 1)"
+author: "Ilana Radinsky"
+date: "June 26, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+
+setwd("C:/MSR-DS3/coursework/week3")
+```
+
+# 1. Let's simulate some data, so that we can practice forecasting with LASSO & Ridge.
+
+(a) First, let's simulate a design matrix (X) with N = 100 data points, each with K = 100 normally distributed covariates (look up the matrix and rnorm functions).
+
+(b) Second, let's simulate a K  1 matrix of coecients () and a N 1 matrix of error terms (e) each from a normal distribution.
+
+(c) Now let us calculate our observed outcomes as: Y = X   + e.
+
+```{r}
+k <- 100
+N <- 100
+
+X <- matrix(rnorm(n=N*k, mean=0, sd=1), N, k)
+B <- matrix(rnorm(n=1*k, mean=0, sd=1), k, 1)
+e <- matrix(rnorm(n=1*N, mean=0, sd=1), N, 1)
+
+Y <- X %*% B + e
+```
+
+(d) This is our training data, use cv:glmnet() to train a Ridge, LASSO and OLS model on this data.
+
+```{r}
+X_df <- data.frame(X)
+Y_df <- data.frame(Y)
+
+ols <- glm(Y_df$Y ~ ., data=X_df)
+summary(ols)
+```
+
+```{r}
+lasso <- cv.glmnet(X, Y, alpha=1)
+summary(lasso)
+
+plot(lasso$glmnet.fit, "lambda")
+```
+
+```{r}
+ridge <- cv.glmnet(X, Y, alpha=0)
+summary(ridge)
+
+plot(ridge$glmnet.fit, "lambda")
+```
+
+```{r}
+set.seed(17)
+
+sample_size <- floor(0.90 * nrow(X))
+inx <- sample(seq_len(nrow(X)), size=sample_size)
+
+X_train <- X[inx, ]
+X_test <- X[-inx, ]
+
+Y_train <- Y[inx, ]
+Y_test <- Y[-inx, ]
+
+```
+
+OLS
+```{r}
+X_train_df <- data.frame(X_train)
+Y_train_df <- data.frame(Y_train)
+
+X_test_df <- data.frame(X_test)
+Y_test_df <- data.frame(Y_test)
+
+ols_new <- glm(Y_train_df$Y_train ~ ., data=X_train_df)
+summary(ols_new)
+
+y_hat_train <- predict(ols_new, newdata = X_train_df)
+mse_train <- mean((y_hat_train-Y_train_df)^2)
+mse_train
+
+y_hat <- predict(ols_new, newdata = X_test_df)
+
+mse_test <- mean((y_hat-Y_test_df)^2)
+mse_test
+```
+
+LASSO
+```{r}
+lasso_new <- cv.glmnet(X_train, Y_train, alpha=1)
+
+y_hat_train <- predict(lasso_new, newx=X_train, s="lambda.min")
+
+mse_train <- mean((y_hat_train-Y_train)^2)
+mse_train
+
+y_hat <- predict(lasso_new, newx=X_test, s="lambda.min")
+
+mse_test <- mean((y_hat-Y_test)^2)
+mse_test
+```
+
+Ridge
+```{r}
+ridge_new <- cv.glmnet(X_train, Y_train, alpha=0)
+
+y_hat_train <- predict(ridge_new, newx=X_train, s="lambda.min")
+
+mse_train <- mean((y_hat_train-Y_train)^2)
+mse_train
+
+y_hat <- predict(ridge_new, newx=X_test, s="lambda.min")
+
+mse_test <- mean((y_hat-Y_test)^2)
+mse_test
+```
+
+(f) Write a loop to repeat this process for 200 replications and compute the average mean squared error of each estimator across these replications. Which model seems to be working best on the test data? Which models had the biggest change in performance from the training to the test data?
+
+```{r}
+mse.ols.train <- rep(0, 200)
+mse.lasso.train <- rep(0, 200)
+mse.ridge.train <- rep(0, 200)
+
+mse.ols.test <- rep(0, 200)
+mse.lasso.test <- rep(0, 200)
+mse.ridge.test <- rep(0, 200)
+
+for (i in 1:200) {
+  # Create data
+  k <- 100
+  N <- 100
+  
+  X <- matrix(rnorm(n=N*k, mean=0, sd=1), N, k)
+  B <- matrix(rnorm(n=1*k, mean=0, sd=1), k, 1)
+  e <- matrix(rnorm(n=1*N, mean=0, sd=1), N, 1)
+  
+  Y <- X %*% B + e
+  
+  # Separate into test and train sets
+  set.seed(17)
+
+  sample_size <- floor(0.90 * nrow(X))
+  inx <- sample(seq_len(nrow(X)), size=sample_size)
+  
+  X_train <- X[inx, ]
+  X_test <- X[-inx, ]
+  
+  Y_train <- Y[inx, ]
+  Y_test <- Y[-inx, ]
+  
+  # Create dataframes for OLS
+  X_train_df <- data.frame(X_train)
+  X_test_df <- data.frame(X_test)
+  
+  Y_train_df <- data.frame(Y_train)
+  Y_test_df <- data.frame(Y_test)
+  
+  # OLS
+  ols <- glm(Y_train_df$Y_train ~ ., data=X_train_df)
+  
+  y_hat_train <- predict(ols, newdata = X_train_df)
+  y_hat_test <- predict(ols, newdata = X_test_df)
+  
+  mse.ols.train[i] <- mean((y_hat_train-Y_train_df)^2)
+  mse.ols.test[i] <- mean((y_hat_test-Y_test_df)^2)
+  
+  # LASSO
+  lasso <- cv.glmnet(X_train, Y_train, alpha=1)
+    
+  y_hat_train <- predict(lasso, newx = X_train)
+  y_hat_test <- predict(lasso, newx = X_test)
+  
+  mse.lasso.train[i] <- mean((y_hat_train-Y_train)^2)
+  mse.lasso.test[i] <- mean((y_hat_test-Y_test)^2)
+  
+  # Ridge
+  ridge <- cv.glmnet(X_train, Y_train, alpha=1)
+    
+  y_hat_train <- predict(ridge, newx = X_train)
+  y_hat_test <- predict(ridge, newx = X_test)
+  
+  mse.ridge.train[i] <- mean((y_hat_train-Y_train)^2)
+  mse.ridge.test[i] <- mean((y_hat_test-Y_test)^2)
+  
+}
+
+mean.mse.ols.test <- mean(mse.ols.test)
+mean.mse.ols.train <- mean(mse.ols.train)
+
+mean.mse.lasso.test <- mean(mse.lasso.test)
+mean.mse.lasso.train <- mean(mse.lasso.train)
+
+mean.mse.ridge.test <- mean(mse.ridge.test)
+mean.mse.ridge.train <- mean(mse.ridge.train)
+
+print(mean.mse.ols.train)
+print(mean.mse.ols.test)
+
+print(mean.mse.lasso.train)
+print(mean.mse.lasso.test)
+
+print(mean.mse.ridge.train)
+print(mean.mse.ridge.test)
+  
+```
+
+(g) Finally, let us repeat steps (a-e) but this time, instead of drawing from a normal distribution, let us x the value of = (5, 5, 5, 5, 0, ... 0). That is, set the first four elements of to be 5 and all remaining elements of to be zero. Which model yielded the lowest out of sample MSE in this second set of simulations? Can you give any reason as to why various estimators might have performed differently when the true data was generated in this way?
+
+```{r}
+# Create data
+  k <- 100
+  N <- 100
+  
+  X <- matrix(rnorm(n=N*k, mean=0, sd=1), N, k)
+  B <- rep(0, k)
+  B[1:4] <- c(5, 5, 5, 5)
+  e <- matrix(rnorm(n=1*N, mean=0, sd=1), N, 1)
+  
+  Y <- X %*% B + e
+  
+  # Separate into test and train sets
+  set.seed(17)
+
+  sample_size <- floor(0.90 * nrow(X))
+  inx <- sample(seq_len(nrow(X)), size=sample_size)
+  
+  X_train <- X[inx, ]
+  X_test <- X[-inx, ]
+  
+  Y_train <- Y[inx, ]
+  Y_test <- Y[-inx, ]
+  
+  # Create dataframes for OLS
+  X_train_df <- data.frame(X_train)
+  X_test_df <- data.frame(X_test)
+  
+  Y_train_df <- data.frame(Y_train)
+  Y_test_df <- data.frame(Y_test)
+  
+  # OLS
+  ols <- glm(Y_train_df$Y_train ~ ., data=X_train_df)
+  
+  y_hat_train <- predict(ols, newdata = X_train_df)
+  y_hat_test <- predict(ols, newdata = X_test_df)
+  
+  mse.ols.train <- mean((y_hat_train-Y_train_df)^2)
+  mse.ols.test <- mean((y_hat_test-Y_test_df)^2)
+  
+  # LASSO
+  lasso <- cv.glmnet(X_train, Y_train, alpha=1)
+    
+  y_hat_train <- predict(lasso, newx = X_train)
+  y_hat_test <- predict(lasso, newx = X_test)
+  
+  mse.lasso.train <- mean((y_hat_train-Y_train)^2)
+  mse.lasso.test <- mean((y_hat_test-Y_test)^2)
+  
+  # Ridge
+  ridge <- cv.glmnet(X_train, Y_train, alpha=1)
+    
+  y_hat_train <- predict(ridge, newx = X_train)
+  y_hat_test <- predict(ridge, newx = X_test)
+  
+  mse.ridge.train <- mean((y_hat_train-Y_train)^2)
+  mse.ridge.test <- mean((y_hat_test-Y_test)^2)
+  
+  
+  print(mse.ols.train)
+print(mse.ols.test)
+
+print(mse.lasso.train)
+print(mse.lasso.test)
+
+print(mse.ridge.train)
+print(mse.ridge.test)
+
+```
+
+
+# Trees!
+
+```{r}
+k <- 1
+N <- 100
+
+X <- matrix(rnorm(n=N*k, mean=0, sd=1), N, k)
+B <- rep(1, k)
+e <- matrix(rnorm(n=1*N, mean=0, sd=1), N, 1)
+
+Y <- X %*% B + e
+
+tree <- rpart(Y ~ X, data=data.frame(X))
+rpart.plot(tree)
+```
+
+
+```{r}
+Y2 <- X^2 %*% B + e
+
+tree2 <- rpart(Y2 ~ X^2, data=data.frame(X))
+rpart.plot(tree2)
+```
+
+```{r}
+x_new <-
+  data.frame(X) %>%
+  mutate(x_greater_than_50=(X>50))
+
+Y3 <- 2 * x_new$x_greater_than_50 + e
+
+tree3 <- rpart(Y3 ~ ., data=x_new)
+rpart.plot(tree3)
+
+y_hat <- predict(tree3, newdata = x_new)
+
+mse <- mean((Y3-y_hat)^2)
+mse
+```
+
+```{r}
+
+new_x <- model.matrix(Y ~ X + X^2 + X^3, data=data.frame(X))
+lasso <- cv.glmnet(new_x, Y, alpha=1)
+
+y_hat <- predict(lasso, newx = new_x)
+
+mse <- mean((Y3-y_hat)^2)
+mse
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
