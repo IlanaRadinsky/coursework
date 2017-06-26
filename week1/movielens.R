@@ -2,6 +2,8 @@ library(scales)
 library(readr)
 library(tidyverse)
 
+setwd("C:/MSR-DS3/coursework/week1")
+
 # set plot theme
 theme_set(theme_bw())
 
@@ -112,18 +114,18 @@ ratings %>%
 # another for 90%---do not, however, bother implementing the null
 # model (shown in the dashed lines).
 
-movie_ranks <-
-  ratings %>%
-  group_by(movie_id) %>%
-  summarise(count=n()) %>%
-  mutate(rank=rank(desc(count), ties.method="first")) %>%
-  arrange(rank) %>%
-  select(movie_id, rank)
-
-ratings_with_ranks <-
-  ratings %>%
-  select(user_id, movie_id) %>%
-  left_join(movie_ranks)
+# movie_ranks <-
+#   ratings %>%
+#   group_by(movie_id) %>%
+#   summarise(count=n()) %>%
+#   mutate(rank=rank(desc(count), ties.method="first")) %>%
+#   arrange(rank) %>%
+#   select(movie_id, rank)
+# 
+# ratings_with_ranks <-
+#   ratings %>%
+#   select(user_id, movie_id) %>%
+#   left_join(movie_ranks)
 
 # users_with_perc_satisfaction <-
 #   ratings_with_ranks %>%
@@ -169,6 +171,19 @@ ratings_with_ranks <-
 #   geom_smooth()
 
 ########### Take 2 ##################
+movie_ranks <-
+  ratings %>%
+  group_by(movie_id) %>%
+  summarise(count=n()) %>%
+  mutate(rank=rank(desc(count), ties.method="first")) %>%
+  arrange(rank) %>%
+  select(movie_id, rank)
+
+ratings_with_ranks <-
+  ratings %>%
+  select(user_id, movie_id) %>%
+  left_join(movie_ranks)
+
 num_unique_users <-
   ratings %>%
   select(user_id) %>%
