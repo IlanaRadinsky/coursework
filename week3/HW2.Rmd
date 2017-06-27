@@ -1,0 +1,99 @@
+---
+title: "Homework 2 (Week 3)"
+author: "Ilana Radinsky"
+date: "June 27, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+
+setwd("C:/MSR-DS3/coursework/week3")
+```
+
+We are going to build a tool for "power calculations". One of the key trade-offs with an experiment is that the larger (and more costly) the experiment the smaller of an effect that one can measure, which is called the minimum detectable effect (MDE). We want a tool to relate these to help with experimental design.
+
+(a) Build a base function takes N, Cohen's d (effect divided of standard deviation of the data), M = 100, and alpha = 0:05 (numbers in parentheses are defaults). For each iteration of M loops, generate data for N units, where half are treated (W = 1 vs W = 0), so that y = d * W + e where e ~ N(0; 1). The function then reports the proportion of loops where the estimated ^ d was significant at the level of alpha.
+  i. What is the power for N = 1000, d = 0:5, and alpha = 0:05?
+  ii. What is the power for N = 1000, d = 0:5, and alpha = 0:01?
+  iii. What is the relation between significance level and power?
+  
+```{r}
+power_func <- function(N, d, M=100, alpha=0.05) {
+  significant_d <- rep(0, M)
+  
+  for (i in 1:M) {
+    W <- sample(c(rep(0, N/2), rep(1, N/2)), N)
+    
+    e <- matrix(rnorm(N))
+    
+    y <- d*W + e
+    
+    reg <- glm(y ~ W)
+    
+    if (summary(reg)$coefficients["W",4] <= alpha) {
+      significant_d[i] <- 1
+    }
+  }
+  return(mean(significant_d))
+}
+```
+
+(b) Build a higher-level function that takes d and power = 0:80 that outputs N required. This will call the base function.
+
+```{r}
+get_N <- function(d, power=0.8) {
+  N = 4
+  while(power_func(N, d) < power) {
+    N = N+2
+  }
+  return(N)
+}
+```
+
+(c) Build a higher-level function that takes N and power = 0:80 that outputs d. This will call the base function.
+
+```{r}
+get_d <- function(N, power=0.8) {
+  
+  d_success <- function(d) {
+    b = as.numeric(power_func(N,d))
+    return((power-b)^2)
+  }
+  
+  min_d <- optim(par = 0, d_success, method = "BFGS")
+  return(min_d$par)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

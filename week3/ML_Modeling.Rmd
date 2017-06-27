@@ -313,7 +313,7 @@ rpart.plot(tree)
 ```{r}
 Y2 <- X^2 %*% B + e
 
-tree2 <- rpart(Y2 ~ X^2, data=data.frame(X))
+tree2 <- rpart(Y2 ~ X, data=data.frame(X))
 rpart.plot(tree2)
 ```
 
@@ -324,7 +324,7 @@ x_new <-
 
 Y3 <- 2 * x_new$x_greater_than_50 + e
 
-tree3 <- rpart(Y3 ~ ., data=x_new)
+tree3 <- rpart(Y3 ~ X, data=x_new)
 rpart.plot(tree3)
 
 y_hat <- predict(tree3, newdata = x_new)
