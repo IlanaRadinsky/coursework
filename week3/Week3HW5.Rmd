@@ -1,0 +1,122 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+library(glmnet)
+library(scales)
+
+setwd("C:/MSR-DS3/coursework/week3")
+```
+
+##1. Picking Control Variables: 
+
+Imagine you have one data point from every county in the US that gives the unemployment rate in that county in 2010 and the amount of money spent by that country on job training programs in 2008. You want to know the treatment effect of money spent on job training programs onto the outcome of unemployment (as measured two years later). List as many examples as you can think of for each category of control variable:
+
+(a) Confounding variables: Unemployment benefits in the country, status of job market (a.k.a. number of jobs available)
+
+(b) Variance-reducing variables: Percent of people who graduated college, percent of population with working family members, percent of population with disabilities
+
+(c) Unrelated variables: Percent of population with driver's licenses
+
+(d) Bad controls: Number of participants in job training programs, number of job training programs
+
+
+##2. Regression Discontinuity on Incumbency Efect (Lee, 2007)
+
+(a) Download the dataset (Lee2007 RDReplication.csv) from the coursework repo. There are many more columns here than you need. DWinNxt (whether or not a dem wins the next election) is the outcome variable we want to model. DemWin (whether or not dems win the current election) lets us know if democrats have the incumbency and it is our treatment of interest. DiffDPct tells us how much Dems won/lost by in the previous election, this is our running variable that gives us a discontinuity. ForgnPct, Gov-WkPct, BlackPct, UrbanPct, DWinPrv, YearElec, and CDNum are potential control variables about each congressional district that can help us predict winners.
+
+```{r}
+df <- read.csv("Lee(2007)_RDReplication.csv")
+colnames(df)
+```
+
+(b) Run a simple regression to try and predict DWinNxt with DemWin. Observe the coefficient on DemWin. Do you think it gives an unbiased estiamte of the incumbency effect. Why or why not?
+
+```{r}
+reg <- glm(DWinNxt ~ DemWin, data=df)
+summary(reg)
+```
+***
+Probably biased because there are confounding variables that haven't been controlled for - variables that affect both DemWin and DWinNext (e.g. ForgnPct, GovWkPct, BlackPct, etc.)
+***
+
+(c) Now consider the various potential controls I mentioned above. Classify each one as a confounding, variance reducing, unrelated, or bad control. Introduce some/all of these variables to your regression and see what happens to the coefficient on DemWin.
+
+***
+ForgnPct -> confounding variable
+GovWkPct -> confounding variable
+BlackPct -> confounding variable
+UrbanPct -> confounding variable
+DWinPrv -> confounding variable
+YearElec -> variance-reducing variable
+CDNum -> variance-reducing variable
+***
+
+```{r}
+reg2 <- glm(DWinNxt ~ DemWin + ForgnPct + GovWkPct + BlackPct + UrbanPct + DWinPrv, data=df)
+summary(reg2)
+```
+
+(d) Give an additional example of a bad control variable in this setting. It does not have to be one that it is present in the dataset.
+
+
+(e) Now use DifDPct as a forcing variable to run a regression discontinuity to estimate the incumbency advantage. Generate a cubic polynomial and pick a window of 10% (this just means to drop data that is more than 15% from the discontinuity) on either side of the threshold (50%). Run a regression discontinuity. How does the coeffcient you got compare to in (b) and (c).
+
+```{r}
+df2 <- 
+  df %>%
+  mutate(greater_than_0.5 = DifDPct>0.5, diff=abs(DifDPct-0.5)) %>%
+  arrange(diff) %>%
+  head(.2*nrow(df))
+
+reg3 <- glm(DWinNxt ~ DemWin + diff*greater_than_0.5, data=df2)
+
+summary(reg3)
+```
+
+(f) Finally, install and use the package rdd to implement this same regression discontinuity design (this saves you from having to decide on bandwidths and code polynomials). Use the functions RDestimate and plot to do a faster regression discontinuity anlaysis. Your answer in (e) should look somewhat similar to your answer here.
+
+```{r}
+library(rdd)
+
+reg4 <- RDestimate(DWinNxt ~ DifDPct, data=df, cutpoint = 0.5)
+summary(reg4)
+plot(reg4)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
