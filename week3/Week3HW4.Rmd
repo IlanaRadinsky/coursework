@@ -1,0 +1,154 @@
+---
+title: 'Week 3, HW 4: Causal Inference with Difference in Differences (DiD) & Regression
+  Discontinuity'
+author: "Ilana Radinsky"
+date: "June 29, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(boot)
+library(glmnet)
+library(scales)
+
+setwd("C:/MSR-DS3/coursework/week3")
+
+df <- read.csv("Card & Krueger (1994) - dataset-1.csv")
+colnames(df)
+```
+
+```{r}
+diffs <-
+  df %>%
+  mutate(diff_EMPFT = EMPFT2-EMPFT, 
+         diff_EMPPT=EMPPT2-EMPPT, 
+         diff_NMGRS=NMGRS2-NMGRS, 
+         diff_WAGE_ST=WAGE_ST2-WAGE_ST, 
+         diff_INCTIME=INCTIME2-INCTIME, 
+         diff_FIRSTINC=FIRSTIN2-FIRSTINC,
+         diff_MEALS=MEALS2-MEALS,
+         diff_OPEN=OPEN2R-OPEN,
+         diff_HRSOPEN=HRSOPEN2-HRSOPEN,
+         diff_PSODA=PSODA2-PSODA,
+         diff_PFRY=PFRY2-PFRY,
+         diff_PENTREE=PENTREE2-PENTREE,
+         diff_NREGS=NREGS2-NREGS,
+         diff_NREGS11=NREGS112-NREGS11) %>%
+  select(1, STATE, contains("diff"))
+
+colnames(diffs)
+```
+
+```{r}
+diffs_pa <-
+  diffs %>%
+  filter(STATE==0)
+
+diffs_nj <-
+  diffs %>%
+  filter(STATE==1)
+
+mean_div_sd <- function(a) {
+  return(mean(a, na.rm = TRUE)/sd(a, na.rm = TRUE))
+}
+
+diff_pa_stats <-
+  diffs_pa %>%
+  summarise_all(funs(mean_div_sd))
+
+diff_nj_stats <-
+  diffs_nj %>%
+  summarise_all(funs(mean_div_sd))
+
+
+reg <- glm(diff_EMPFT ~ STATE, data=diffs)
+summary(reg)
+
+ggplot(aes(x=STATE, y=diff_EMPFT), data=diffs) +
+  geom_smooth(method="lm") +
+  geom_point()
+```
+
+```{r}
+df2 <-
+  df %>%
+  select(1, WAGE_ST) %>%
+  inner_join(diffs, by="ï..SHEET") %>%
+  mutate_if(colnames(.)=="WAGE_ST", funs(ifelse(.>5.05, 0, .))) %>%
+  mutate(GAP=(5.05-WAGE_ST)/WAGE_ST)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
