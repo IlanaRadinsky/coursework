@@ -1,0 +1,88 @@
+---
+title: "Logistic Regression Lab"
+author: "Ilana Radinsky"
+date: "July 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercises
+
+1. Let's load the Titanic training data. What are the odds of surviving the shipwreck?
+
+```{r}
+train <- read.csv("https://www.dropbox.com/s/eg6kack8wmlqmhg/titanic_train.csv?raw=1")
+
+mean(train$Survived)
+```
+
+2. Using the logit model, estimate how much lower are the odds of survival for men relative to women?
+
+```{r}
+logit1 <- glm(Survived ~ Sex, data = train, family = "binomial")
+summary(logit1)
+```
+
+3. Controlling for gender, does age have a statistically significant effect on the odds of survival? If so, what is the magnitude of that effect?
+
+```{r}
+logit2 <- glm(Survived ~ Sex + Age, data = train, family = "binomial")
+summary(logit2)
+```
+
+4. Controlling for gender, does passenger class have a statistically significant effect on the odds of survival? If so, what is the magnitude of that effect?
+
+```{r}
+logit3 <- glm(Survived ~ Sex + Pclass, data = train, family = "binomial")
+summary(logit3)
+```
+
+5. Controlling for gender, estimate the effect of being in the second class relative to first class, and the effect of being in the third relative to first.
+
+```{r}
+logit4 <- glm(Survived ~ Sex + as.factor(Pclass), data = train, family = "binomial")
+summary(logit4)
+```
+
+6. Add fare to the regression you estimated above. Is fare a significant determinant of survival controlling for gender and passenger class? Do you think that if we regressed survival on just gender and fare, fare would be significant? Explain.
+
+```{r}
+logit5 <- glm(Survived ~ Sex + as.factor(Pclass) + Fare, data = train, family = "binomial")
+summary(logit5)
+```
+
+7. As we know from the movie, Jack traveled in the third class and paid 5 pounds (I know that Jack actually won the ticket in poker, but Swen, from whom Jack won the ticket, paid .). Rose traveled in the first class and paid 500 for her ticket (I know that her fiancee, Cal Hockley - Pittsburgh steel tycoon, actually bought the ticket, but .). What is the probability that Jack will survive? What is the probability that Rose will survive?
+
+```{r}
+jack <- data.frame(Sex=c("male"), Pclass=c("3"), Fare=c(5))
+rose <- data.frame(Sex=c("female"), Pclass=c("1"), Fare=c(500))
+
+jack$pred <- predict(logit5, jack, type="response")
+rose$pred <- predict(logit5, rose, type="response")
+
+jack
+rose
+```
+
+8. Create your own logistic model and make predictions for passengers in the Titanic test data set. Keep in mind that you must make predictions for all passengers in the test data (even those with missing values). Use your own probability cut off for predicting survival (0.5 is a natural start). Submit your predictions to kaggle, did you do better with logistic regression than with decision trees? Which algorithm do you like better?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
