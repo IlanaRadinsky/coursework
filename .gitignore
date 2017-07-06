@@ -3,5 +3,5 @@
 *~
 *.zip
 .ipynb_checkpoints
-*tripdata.csv
+*.csv
 *.Rdata

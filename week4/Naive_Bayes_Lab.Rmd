@@ -73,9 +73,9 @@ classifier2
 
 ```{r}
 test2 <- data.frame(buy=c("yes"), income=c("high"), gender=c("male"))
-test2$buy <- factor(test2$buy, levels=c("yes","no"))
+test2$buy <- factor(test2$buy, levels=c("no","yes"))
 test2$income <- factor(test2$income, levels=c("high", "low", "medium"))
-test2$gender <- factor(test2$gender, levels=c("male", "female"))
+test2$gender <- factor(test2$gender, levels=c("female", "male"))
 test2
 
 prediction2 <- predict(classifier2, test2, type="raw")

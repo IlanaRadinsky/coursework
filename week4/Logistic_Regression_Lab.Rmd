@@ -9,6 +9,10 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(dplyr)
+```
+
 ## Exercises
 
 1. Let's load the Titanic training data. What are the odds of surviving the shipwreck?
@@ -57,19 +61,33 @@ summary(logit5)
 7. As we know from the movie, Jack traveled in the third class and paid 5 pounds (I know that Jack actually won the ticket in poker, but Swen, from whom Jack won the ticket, paid .). Rose traveled in the first class and paid 500 for her ticket (I know that her fiancee, Cal Hockley - Pittsburgh steel tycoon, actually bought the ticket, but .). What is the probability that Jack will survive? What is the probability that Rose will survive?
 
 ```{r}
-jack <- data.frame(Sex=c("male"), Pclass=c("3"), Fare=c(5))
-rose <- data.frame(Sex=c("female"), Pclass=c("1"), Fare=c(500))
+test <- data.frame(Name=c("Jack", "Rose"), Sex=c("male", "female"), Pclass=c("3", "1"), Fare=c(5, 500))
 
-jack$pred <- predict(logit5, jack, type="response")
-rose$pred <- predict(logit5, rose, type="response")
+test$Sex <- factor(test$Sex, levels=c("male","female"))
+test$Pclass <- factor(test$Pclass, levels=c("1", "2", "3"))
 
-jack
-rose
+test$pred <- predict(logit5, test, type="response")
+
+test
 ```
 
 8. Create your own logistic model and make predictions for passengers in the Titanic test data set. Keep in mind that you must make predictions for all passengers in the test data (even those with missing values). Use your own probability cut off for predicting survival (0.5 is a natural start). Submit your predictions to kaggle, did you do better with logistic regression than with decision trees? Which algorithm do you like better?
 
+```{r}
+test_df <- read.csv("https://storage.googleapis.com/kaggle-competitions-data/kaggle/3136/test.csv?GoogleAccessId=competitions-data@kaggle-161607.iam.gserviceaccount.com&Expires=1499543847&Signature=Tm0TDXhyr1PUAp2wrt82mvuRcgT4W0BqBThe6J5m2UPn7omfIYXV963ls9QLHnob5wKBXj%2FNBT%2FXuBlLVKAZNaNMbC6I%2B9m%2FxUiL5kLhWdf6VgBJ3RRG9CrqBAbIDoXxkwwa87bIjNE7O2hOyYp%2BPn1s6k3C7FeKU1mPbnoUQ0cJQCIUZq%2BkEXCB92I5Wemjq6X3jxNn7pCs2z0bRj9mVMVXM%2FcARqZyIJqBxej7kSBMKjBS0u8tNiz5cOhm3DPcdMp8KSLxUEcHEASlS49CWGYyyT0fJyjzGyEQSO%2BPEiBmbg0C%2F7Dg6dPa7uI8vvVsOt8JraqfFo%2BVo8%2BqNa7Puw%3D%3D")
 
+test_df$pred <- predict(logit5, test_df, type="response")
+test_df$pred <- as.integer(as.logical(test_df$pred>0.5))
+test_df[is.na(test_df)] <- 0
+
+submission <- 
+  test_df %>%
+  select(PassengerId, pred) %>%
+  rename(Survived=pred)
+
+
+write.csv(submission, "submission.csv", row.names=FALSE)
+```
 
 
 
