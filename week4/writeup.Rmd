@@ -1,0 +1,41 @@
+---
+title: "New York Times Articles"
+author: "Ilana Radinsky"
+date: "July 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ROCR)
+
+load("outputs.RData")
+```
+
+#ROC curve
+```{r plot1, echo=FALSE}
+plot(roc.perf, print.auc=TRUE)
+```
+
+#Accuracy curve
+```{r plot2, echo=FALSE}
+plot(acc.perf)
+```
+
+Accuracy: `r acc`
+Cutoff: `r cutoff`
+
+AUC: `r auc`
+
+#Top 10 words for business
+
+```{r, echo=FALSE}
+print(top_bus)
+```
+
+#Top 10 words for world
+```{r, echo=FALSE}
+print(top_world)
+```
+

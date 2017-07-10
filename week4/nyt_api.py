@@ -1,9 +1,9 @@
 #
-# file: get_article_urls.py
+# file: nyt_api.py
 #
 # description: fetches article urls from the NYTimes API
 #
-# usage: get_articles.py <api_key>
+# usage: nyt_api.py <api_key>
 #
 # requirements: a NYTimes API key
 #   available at https://developer.nytimes.com/signup
@@ -24,7 +24,8 @@ if __name__=='__main__':
 
    params = {'api-key': api_key}
    r = requests.get(ARTICLE_SEARCH_URL, params)
-   data = json.loads(r.content)
+   data = r.json()
+   #data = json.loads(r.content)
 
    for doc in data['response']['docs']:
         print(doc['web_url'])
